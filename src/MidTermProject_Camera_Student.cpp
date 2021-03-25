@@ -59,8 +59,8 @@ int main(int argc, const char *argv[])
     // optional : limit number of keypoints (helpful for debugging and learning)
     bool bLimitKpts = false;
     int maxKeypoints = 50;
-    string detectorType = "SHITOMASI";
-    string descriptorType = "BRISK"; // BRIEF, ORB, FREAK, AKAZE, SIFT
+    std::vector<std::string> detectorarray = {"SHITOMASI"};
+    std::vector<std::string> descriptorarray = {"BRISK"};
     string matcherType = "MAT_BF";   // MAT_BF, MAT_FLANN
     string selectorType = "SEL_NN";  // SEL_NN, SEL_KNN
     InputParser input(argc, argv);
@@ -90,12 +90,12 @@ int main(int argc, const char *argv[])
     const std::string &detectorTypeParsed = input.getCmdOption("-d");
     if (!detectorTypeParsed.empty())
     {
-        detectorType = detectorTypeParsed;
+        detectorarray[0] = detectorTypeParsed;
     }
     const std::string &extractorTypeParsed = input.getCmdOption("-e");
     if (!extractorTypeParsed.empty())
     {
-        descriptorType = extractorTypeParsed;
+        descriptorarray[0] = extractorTypeParsed;
     }
     if (input.cmdOptionExists("-knn"))
     {
@@ -104,6 +104,14 @@ int main(int argc, const char *argv[])
     if (input.cmdOptionExists("-flann"))
     {
         matcherType = "MAT_FLANN";
+    }
+    if(input.cmdOptionExists("-auto"))
+    {
+        bVisKey = false;
+        bVisMatch = false;
+        selectorType = "SEL_KNN";
+        detectorarray = {"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB", "AKAZE", "SIFT"};
+        descriptorarray = {"BRISK", "BRIEF", "ORB", "FREAK", "AKAZE", "SIFT"};
     }
     /* INIT VARIABLES AND DATA STRUCTURES */
 
@@ -117,18 +125,21 @@ int main(int argc, const char *argv[])
     int imgStartIndex = 0; // first file index to load (assumes Lidar and camera names have identical naming convention)
     int imgEndIndex = 9;   // last file index to load
     int imgFillWidth = 4;  // no. of digits which make up the file index (e.g. img-0001.png)
-
     // misc
-    int dataBufferSize = 2;                                // no. of images which are held in memory (ring buffer) at the same time
-    ring_buffer<DataFrame> dataRingBuffer(dataBufferSize); // list of data frames which are held in memory at the same time
-                                                           // visualize results
+    int dataBufferSize = 2; // no. of images which are held in memory (ring buffer) at the same time
+
     /* MAIN LOOP OVER ALL IMAGES */
-    std::string detectorarray[7] = {"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB", "AKAZE", "SIFT"};
-    std::string descriptorarray[7] = {"BRISK", "BRIEF", "ORB", "FREAK", "AKAZE", "SIFT"};
     for (auto detectorType : detectorarray)
     {
         for (auto descriptorType : descriptorarray)
         {
+            if ((descriptorType == "AKAZE" && detectorType != "AKAZE") ||  (descriptorType == "ORB"   && detectorType == "SIFT"))
+            {
+
+                continue;
+            }
+            ring_buffer<DataFrame> dataRingBuffer(dataBufferSize); // list of data frames which are held in memory at the same time
+
             cout << detectorType << "---" << descriptorType << endl;
             for (size_t imgIndex = 0; imgIndex <= imgEndIndex - imgStartIndex; imgIndex++)
             {
@@ -241,7 +252,6 @@ int main(int argc, const char *argv[])
                     /* MATCH KEYPOINT DESCRIPTORS */
 
                     vector<cv::DMatch> matches;
-                    string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
                     //// STUDENT ASSIGNMENT
                     //// TASK MP.5 -> add FLANN matching in file matching2D.cpp
                     //// TASK MP.6 -> add KNN match selection and perform descriptor distance ratio filtering with t=0.8 in file matching2D.cpp
@@ -254,7 +264,7 @@ int main(int argc, const char *argv[])
 
                     // store matches in current data frame
                     dataRingBuffer.head()->kptMatches = matches;
-                    cout << "matched data " << imgIndex - 1 << ' ' << imgIndex << ' ' << matches.size() << '\n';
+                    //cout << "matched data " << imgIndex - 1 << ' ' << imgIndex << ' ' << matches.size() << '\n';
                     //cout << "#4 : MATCH KEYPOINT DESCRIPTORS done" << endl;
 
                     // visualize matches between current and previous image
